@@ -2,6 +2,7 @@ use colored::*;
 use dotenv::dotenv;
 use reqwest;
 use serde::{Deserialize, Serialize};
+use spinners::{Spinner, Spinners};
 use std::env;
 use std::io::{self, Write};
 
@@ -95,6 +96,7 @@ impl SqlGenerator {
     }
 
     async fn generate_and_print_sql_code(&self, input: &str) {
+        let mut sp = Spinner::new(Spinners::Dots12, "\t\tOpenAI is Thinking...".into());
         match self
             .openai
             .generate_code(&format!(
@@ -103,12 +105,21 @@ impl SqlGenerator {
             ))
             .await
         {
-            Ok(sql_code) => println!("{}", sql_code),
-            Err(err) => println!("{} {}", "Error:".red().bold(), err),
+            Ok(sql_code) => {
+                // stopping the spinner
+                sp.stop();
+                println!("{}", sql_code)
+            }
+            Err(err) => {
+                sp.stop();
+                println!("{} {}", "Error:".red().bold(), err)
+            }
         }
     }
 
     async fn run(&self) -> Result<(), String> {
+        println!("{esc}c", esc = 27 as char);
+
         loop {
             match Self::get_input() {
                 Ok(input) if input.trim().is_empty() => continue,
