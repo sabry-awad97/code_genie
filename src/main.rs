@@ -1,7 +1,5 @@
 use dotenv::dotenv;
-use hyper::body::Buf;
-use hyper::{header, Body, Client, Request};
-use hyper_tls::HttpsConnector;
+use reqwest;
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::io::{stdin, stdout, Write};
@@ -43,11 +41,10 @@ struct OAIResponse {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     dotenv().ok();
-    let https = HttpsConnector::new();
-    let client = Client::builder().build(https);
     let uri = "https://api.openai.com/v1/engines/text-davinci-001/completions";
 
-    let oai_token: String = env::var("OPENAI_API_KEY").unwrap();
+    let oai_token: String =
+        env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY environment variable not set");
     let auth_header_val = format!("Bearer {}", oai_token);
 
     println!("{esc}c", esc = 27 as char);
@@ -61,16 +58,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             prompt: format!("Generate a Sql code for the given statement. {}", input),
             max_tokens: 1000,
         };
-        let body = Body::from(serde_json::to_vec(&request)?);
-
-        let request = Request::post(uri)
-            .header(header::CONTENT_TYPE, "application/json")
-            .header("Authorization", &auth_header_val)
-            .body(body)
-            .unwrap();
-        let response = client.request(request).await?;
-        let body = hyper::body::aggregate(response).await?;
-        let oai_response: OAIResponse = serde_json::from_reader(body.reader())?;
+        let response = reqwest::Client::new()
+            .post(uri)
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .header(reqwest::header::AUTHORIZATION, &auth_header_val)
+            .json(&request)
+            .send()
+            .await?;
+        let oai_response: OAIResponse = response.json().await?;
 
         println!("{}", oai_response.choices[0].text);
         input.clear();
