@@ -30,4 +30,7 @@ struct OAIResponse {
     choices: Vec<OAIChoices>,
 }
 
-fn main() {}
+fn main() {
+    dotenv().ok();
+    let oai_token: String = env::var("OPENAI_API_KEY").unwrap();
+}
