@@ -33,4 +33,7 @@ struct OAIResponse {
 fn main() {
     dotenv().ok();
     let oai_token: String = env::var("OPENAI_API_KEY").unwrap();
+
+    let https = HttpsConnector::new();
+    let client = Client::builder().build(https);
 }
