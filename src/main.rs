@@ -112,24 +112,37 @@ impl SqlGenerator {
 
     async fn generate_and_print_sql_code(&mut self, input: &str) {
         let mut sp = Spinner::new(Spinners::Dots12, "\t\tOpenAI is Thinking...".into());
-        match self
-            .openai
-            .generate_code(&format!(
-                "Generate a SQL code for the given statement. {}",
-                input
-            ))
-            .await
-        {
+
+        let prompt = format!("Generate a SQL code for the given statement. {}", input);
+        match self.openai.generate_code(&prompt).await {
             Ok(sql_code) => {
                 // stopping the spinner
                 sp.stop();
-                println!("{}", sql_code)
+                println!("");
+                self.print_sql_code(&sql_code);
             }
             Err(err) => {
                 sp.stop();
-                println!("{} {}", "Error:".red().bold(), err)
+                println!("");
+                self.print_error(&format!("Failed to generate SQL code: {}", err));
             }
         }
+    }
+
+    fn print_sql_code(&self, sql_code: &str) {
+        let separator = "=".repeat(80);
+        println!("{}\n{}\n{}\n", separator, sql_code, separator);
+    }
+
+    fn print_error(&self, message: &str) {
+        let error_msg = format!("Error: {}", message);
+        let separator = "-".repeat(error_msg.len());
+        println!(
+            "\n{}\n{}\n{}\n",
+            separator.red(),
+            error_msg.red().bold(),
+            separator.red()
+        );
     }
 
     async fn run(&mut self) -> Result<(), String> {
