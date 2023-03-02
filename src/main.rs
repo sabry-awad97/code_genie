@@ -40,6 +40,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let oai_token: String = env::var("OPENAI_API_KEY").unwrap();
     let auth_header_val = format!("Bearer {}", oai_token);
 
+    println!("{esc}c", esc = 27 as char);
+
     let mut input = String::new();
     loop {
         print!("> ");
@@ -50,6 +52,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             max_tokens: 1000,
         };
         let body = Body::from(serde_json::to_vec(&request)?);
+
+        let sp = Spinner::new(&Spinners::Dots12, "\t\tOpenAI is Thinking...".into());
+
         let request = Request::post(uri)
             .header(header::CONTENT_TYPE, "application/json")
             .header("Authorization", &auth_header_val)
@@ -58,6 +63,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let response = client.request(request).await?;
         let body = hyper::body::aggregate(response).await?;
         let oai_response: OAIResponse = serde_json::from_reader(body.reader())?;
+
+        sp.stop();
         println!("{}", oai_response.choices[0].text);
         input.clear();
     }
