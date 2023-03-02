@@ -2,30 +2,41 @@ use dotenv::dotenv;
 use hyper::body::Buf;
 use hyper::{header, Body, Client, Request};
 use hyper_tls::HttpsConnector;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::env;
 use std::io::{stdin, stdout, Write};
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 struct OAIRequest {
+    #[serde(rename = "prompt")]
     prompt: String,
+    #[serde(rename = "max_tokens")]
     max_tokens: u16,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 struct OAIChoices {
+    #[serde(rename = "text")]
     text: String,
+    #[serde(rename = "index")]
     index: u8,
+    #[serde(rename = "logprobs")]
     logprobs: Option<u8>,
+    #[serde(rename = "finish_reason")]
     finish_reason: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 struct OAIResponse {
+    #[serde(rename = "id")]
     id: Option<String>,
+    #[serde(rename = "object")]
     object: Option<String>,
+    #[serde(rename = "created")]
     created: Option<u64>,
+    #[serde(rename = "model")]
     model: Option<String>,
+    #[serde(rename = "choices")]
     choices: Vec<OAIChoices>,
 }
 

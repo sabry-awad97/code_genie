@@ -9,7 +9,6 @@ edition = "2021"
 hyper = { version = "^0.14", features = ["full"] } # A fast and correct HTTP implementation for Rust.
 hyper-tls = "^0.5" # Provides an HTTPS connector for use with hyper.
 tokio = { version = "^1.0", features = ["full"] } # A runtime for writing reliable asynchronous functions with Rust.
-serde = { version = "^1.0" } # serialization/deserialization to and from JSON.
-serde_derive = "^1.0" # A macro for deriving serde::Serialize and serde::Deserialize (logic for structs).
+serde = { version = "^1.0", features = ["derive"] } # serialization/deserialization to and from JSON.
 serde_json = "^1.0" # For converting to and from JSON.
 dotenv = "0.15.0" # For loading environment variables from a .env file.
