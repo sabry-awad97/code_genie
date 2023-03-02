@@ -1,12 +1,13 @@
 use colored::*;
+use core::time;
 use dotenv::dotenv;
 use lru::LruCache;
 use reqwest;
 use serde::{Deserialize, Serialize};
 use spinners::{Spinner, Spinners};
-use std::env;
 use std::io::{self, Write};
 use std::num::NonZeroUsize;
+use std::{env, thread};
 
 const CACHE_SIZE: usize = 100;
 
@@ -118,12 +119,10 @@ impl SqlGenerator {
             Ok(sql_code) => {
                 // stopping the spinner
                 sp.stop();
-                println!("");
                 self.print_sql_code(&sql_code);
             }
             Err(err) => {
                 sp.stop();
-                println!("");
                 self.print_error(&format!("Failed to generate SQL code: {}", err));
             }
         }
@@ -131,18 +130,27 @@ impl SqlGenerator {
 
     fn print_sql_code(&self, sql_code: &str) {
         let separator = "=".repeat(80);
-        println!("{}\n{}\n{}\n", separator, sql_code, separator);
+        println!("\n{}", separator);
+        self.print_with_delay(sql_code);
+        println!("\n{}", separator);
+    }
+
+    fn print_with_delay(&self, code: &str) {
+        // Delay between printing each character
+        let delay = time::Duration::from_millis(50);
+        for c in code.chars() {
+            print!("{}", c);
+            io::stdout().flush().unwrap();
+            thread::sleep(delay);
+        }
     }
 
     fn print_error(&self, message: &str) {
         let error_msg = format!("Error: {}", message);
         let separator = "-".repeat(error_msg.len());
-        println!(
-            "\n{}\n{}\n{}\n",
-            separator.red(),
-            error_msg.red().bold(),
-            separator.red()
-        );
+        println!("\n{}", separator.red());
+        self.print_with_delay(&error_msg);
+        println!("\n{}", separator.red());
     }
 
     async fn run(&mut self) -> Result<(), String> {
