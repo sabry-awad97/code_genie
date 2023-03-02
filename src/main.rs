@@ -1,3 +1,4 @@
+use colored::*;
 use dotenv::dotenv;
 use reqwest;
 use serde::{Deserialize, Serialize};
@@ -44,20 +45,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let uri = "https://api.openai.com/v1/engines/text-davinci-001/completions";
 
     let oai_token: String =
-        env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY environment variable not set");
+        env::var("OPENAI_API_KEY").expect("Please set OPENAI_API_KEY environment variable");
+
     let auth_header_val = format!("Bearer {}", oai_token);
-
-    println!("{esc}c", esc = 27 as char);
-
     let mut input = String::new();
     loop {
-        print!("> ");
-        stdout().flush()?;
+        print!("{}>{}", "Sql:".green(), " ".blue());
+        stdout().flush().unwrap();
         stdin().read_line(&mut input)?;
+
         let request = OAIRequest {
             prompt: format!("Generate a Sql code for the given statement. {}", input),
             max_tokens: 1000,
         };
+
         let response = reqwest::Client::new()
             .post(uri)
             .header(reqwest::header::CONTENT_TYPE, "application/json")
@@ -66,14 +67,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             .send()
             .await?;
 
-        let status = response.status();
-        if !status.is_success() {
-            return Err(format!("OpenAI API returned error status code: {}", status).into());
+        if response.status().is_success() {
+            let oai_response: OAIResponse = response.json().await?;
+            println!("{}", oai_response.choices[0].text);
+        } else {
+            let status = response.status().as_u16();
+            let err_msg = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            println!("{} {}", "Error:".red().bold(), err_msg.red());
+            println!("{} {}", "Status:".red().bold(), status);
         }
 
-        let oai_response: OAIResponse = response.json().await?;
-
-        println!("{}", oai_response.choices[0].text);
         input.clear();
     }
 }
