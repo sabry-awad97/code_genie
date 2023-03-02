@@ -52,8 +52,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut input = String::new();
     loop {
         print!("> ");
-        stdout().flush().unwrap();
-        stdin().read_line(&mut input).expect("Failed to read line");
+        stdout().flush()?;
+        stdin().read_line(&mut input)?;
         let request = OAIRequest {
             prompt: format!("Generate a Sql code for the given statement. {}", input),
             max_tokens: 1000,
@@ -65,6 +65,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             .json(&request)
             .send()
             .await?;
+
+        let status = response.status();
+        if !status.is_success() {
+            return Err(format!("OpenAI API returned error status code: {}", status).into());
+        }
+
         let oai_response: OAIResponse = response.json().await?;
 
         println!("{}", oai_response.choices[0].text);
