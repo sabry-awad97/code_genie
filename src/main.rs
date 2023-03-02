@@ -3,7 +3,6 @@ use hyper::body::Buf;
 use hyper::{header, Body, Client, Request};
 use hyper_tls::HttpsConnector;
 use serde_derive::{Deserialize, Serialize};
-use spinners::{Spinner, Spinners};
 use std::env;
 use std::io::{stdin, stdout, Write};
 
@@ -53,8 +52,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         };
         let body = Body::from(serde_json::to_vec(&request)?);
 
-        let sp = Spinner::new(&Spinners::Dots12, "\t\tOpenAI is Thinking...".into());
-
         let request = Request::post(uri)
             .header(header::CONTENT_TYPE, "application/json")
             .header("Authorization", &auth_header_val)
@@ -64,7 +61,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let body = hyper::body::aggregate(response).await?;
         let oai_response: OAIResponse = serde_json::from_reader(body.reader())?;
 
-        sp.stop();
         println!("{}", oai_response.choices[0].text);
         input.clear();
     }
