@@ -1,10 +1,14 @@
 use colored::*;
 use dotenv::dotenv;
+use lru::LruCache;
 use reqwest;
 use serde::{Deserialize, Serialize};
 use spinners::{Spinner, Spinners};
 use std::env;
 use std::io::{self, Write};
+use std::num::NonZeroUsize;
+
+const CACHE_SIZE: usize = 100;
 
 #[derive(Serialize, Deserialize)]
 struct OAIRequest {
@@ -42,6 +46,7 @@ struct OAIResponse {
 
 struct OpenAI {
     api_key: String,
+    cache: LruCache<String, String>,
 }
 
 impl OpenAI {
@@ -50,10 +55,16 @@ impl OpenAI {
         let api_key = env::var("OPENAI_API_KEY")
             .map_err(|_| String::from("Please set OPENAI_API_KEY environment variable"))?;
 
-        Ok(Self { api_key })
+        let cache = LruCache::new(NonZeroUsize::new(CACHE_SIZE).unwrap());
+
+        Ok(Self { api_key, cache })
     }
 
-    async fn generate_code(&self, prompt: &str) -> Result<String, String> {
+    async fn generate_code(&mut self, prompt: &str) -> Result<String, String> {
+        if let Some(cached_result) = self.cache.get(prompt) {
+            return Ok(cached_result.clone());
+        }
+
         let uri = "https://api.openai.com/v1/engines/text-davinci-001/completions";
         let request = OAIRequest {
             prompt: prompt.to_owned(),
@@ -73,7 +84,11 @@ impl OpenAI {
             .await
             .map_err(|err| format!("JSON Error: {}", err))?;
 
-        Ok(response.choices[0].text.clone())
+        let result = response.choices[0].text.clone();
+
+        self.cache.put(prompt.to_owned(), result.clone());
+
+        Ok(result)
     }
 }
 
@@ -95,7 +110,7 @@ impl SqlGenerator {
         Ok(input)
     }
 
-    async fn generate_and_print_sql_code(&self, input: &str) {
+    async fn generate_and_print_sql_code(&mut self, input: &str) {
         let mut sp = Spinner::new(Spinners::Dots12, "\t\tOpenAI is Thinking...".into());
         match self
             .openai
@@ -117,7 +132,7 @@ impl SqlGenerator {
         }
     }
 
-    async fn run(&self) -> Result<(), String> {
+    async fn run(&mut self) -> Result<(), String> {
         println!("{esc}c", esc = 27 as char);
 
         loop {
@@ -132,7 +147,7 @@ impl SqlGenerator {
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
-    let sql_generator = SqlGenerator::new()?;
+    let mut sql_generator = SqlGenerator::new()?;
     sql_generator.run().await?;
     Ok(())
 }
