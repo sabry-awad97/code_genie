@@ -36,4 +36,7 @@ fn main() {
 
     let https = HttpsConnector::new();
     let client = Client::builder().build(https);
+
+    let uri = "https://api.openai.com/v1/engines/text-davinci-001/completions";
+
 }
