@@ -30,13 +30,35 @@ struct OAIResponse {
     choices: Vec<OAIChoices>,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     dotenv().ok();
-    let oai_token: String = env::var("OPENAI_API_KEY").unwrap();
-
     let https = HttpsConnector::new();
     let client = Client::builder().build(https);
-
     let uri = "https://api.openai.com/v1/engines/text-davinci-001/completions";
 
+    let oai_token: String = env::var("OPENAI_API_KEY").unwrap();
+    let auth_header_val = format!("Bearer {}", oai_token);
+
+    let mut input = String::new();
+    loop {
+        print!("> ");
+        stdout().flush().unwrap();
+        stdin().read_line(&mut input).expect("Failed to read line");
+        let request = OAIRequest {
+            prompt: format!("Generate a Sql code for the given statement. {}", input),
+            max_tokens: 1000,
+        };
+        let body = Body::from(serde_json::to_vec(&request)?);
+        let request = Request::post(uri)
+            .header(header::CONTENT_TYPE, "application/json")
+            .header("Authorization", &auth_header_val)
+            .body(body)
+            .unwrap();
+        let response = client.request(request).await?;
+        let body = hyper::body::aggregate(response).await?;
+        let oai_response: OAIResponse = serde_json::from_reader(body.reader())?;
+        println!("{}", oai_response.choices[0].text);
+        input.clear();
+    }
 }
