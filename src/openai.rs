@@ -1,10 +1,15 @@
 use dotenv::dotenv;
 use lru::LruCache;
-use std::{env, num::NonZeroUsize};
+use ratelimit_meter::{DirectRateLimiter, GCRA};
+use std::{
+    env,
+    num::{NonZeroU32, NonZeroUsize},
+};
 
 use crate::model::{OAIRequest, OAIResponse};
 
 const CACHE_SIZE: usize = 100;
+const RATE_LIMIT_REQUESTS_PER_WINDOW: u32 = 1000;
 
 pub struct CodeCache {
     cache: LruCache<String, String>,
@@ -29,6 +34,7 @@ impl CodeCache {
 pub struct OpenAI {
     pub api_key: String,
     pub cache: CodeCache,
+    rate_limiter: DirectRateLimiter<GCRA>,
 }
 
 impl OpenAI {
@@ -39,13 +45,26 @@ impl OpenAI {
 
         let cache = CodeCache::new();
 
-        Ok(Self { api_key, cache })
+        let rate_limiter = DirectRateLimiter::<GCRA>::per_second(
+            NonZeroU32::new(RATE_LIMIT_REQUESTS_PER_WINDOW).unwrap(),
+        );
+
+        Ok(Self {
+            api_key,
+            cache,
+            rate_limiter,
+        })
     }
 
     pub async fn generate_code(&mut self, prompt: &str) -> Result<String, String> {
         if let Some(cached_result) = self.cache.get(prompt) {
             return Ok(cached_result);
         }
+
+        // Wait until the rate limiter allows another request
+        self.rate_limiter
+            .check()
+            .map_err(|_| "Rate limit exceeded")?;
 
         let uri = "https://api.openai.com/v1/engines/text-davinci-001/completions";
         let request = OAIRequest {
@@ -61,15 +80,28 @@ impl OpenAI {
             .json(&request)
             .send()
             .await
-            .map_err(|err| format!("API Error: {}", err))?
-            .json::<OAIResponse>()
-            .await
-            .map_err(|err| format!("JSON Error: {}", err))?;
+            .map_err(|err| format!("API Error: {}", err))?;
 
-        let result = response.choices[0].text.clone();
+        match response.status() {
+            // Handle successful response
+            reqwest::StatusCode::OK => {
+                let response = response
+                    .json::<OAIResponse>()
+                    .await
+                    .map_err(|err| format!("JSON Error: {}", err))?;
 
-        self.cache.put(prompt.to_owned(), result.clone());
+                let result = response.choices[0].text.clone();
 
-        Ok(result)
+                self.cache.put(prompt.to_owned(), result.clone());
+
+                Ok(result)
+            }
+            // Handle other HTTP response codes
+            reqwest::StatusCode::TOO_MANY_REQUESTS => Err("Rate limit exceeded".to_owned()),
+            _ => Err(format!(
+                "Unexpected response status code: {}",
+                response.status()
+            )),
+        }
     }
 }
