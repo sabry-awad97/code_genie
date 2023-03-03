@@ -3,7 +3,7 @@ use lru::LruCache;
 use ratelimit_meter::{DirectRateLimiter, GCRA};
 use std::{
     env,
-    num::{NonZeroU32, NonZeroUsize},
+    num::{NonZeroU32, NonZeroUsize}, time::Duration,
 };
 
 use crate::model::{OAIRequest, OAIResponse};
@@ -75,6 +75,7 @@ impl OpenAI {
 
         let response = reqwest::Client::new()
             .post(uri)
+            .timeout(Duration::from_secs(10))
             .header(reqwest::header::CONTENT_TYPE, "application/json")
             .header(reqwest::header::AUTHORIZATION, &auth_header_val)
             .json(&request)
