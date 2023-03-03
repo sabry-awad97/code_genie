@@ -46,7 +46,7 @@ impl<T: CodeGenerator> Generator<T> {
                 sp.stop();
 
                 let formatted = self.code_generator.format(&code);
-                self.print_sql_code(&formatted);
+                self.print_code(&formatted);
             }
             Err(err) => {
                 sp.stop();
@@ -55,7 +55,7 @@ impl<T: CodeGenerator> Generator<T> {
         }
     }
 
-    fn print_sql_code(&self, sql_code: &str) {
+    fn print_code(&self, sql_code: &str) {
         let separator = "=".repeat(80);
         println!("\n{}", separator);
         self.print_with_delay(sql_code);
