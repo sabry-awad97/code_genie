@@ -5,6 +5,7 @@ use lru::LruCache;
 use reqwest;
 use serde::{Deserialize, Serialize};
 use spinners::{Spinner, Spinners};
+use sqlformat::{format, FormatOptions, Indent, QueryParams};
 use std::io::{self, Write};
 use std::num::NonZeroUsize;
 use std::{env, thread};
@@ -93,14 +94,28 @@ impl OpenAI {
     }
 }
 
+struct SqlFormatter;
+
+impl SqlFormatter {
+    fn format(&self, sql_code: &str) -> String {
+        let options = FormatOptions {
+            indent: Indent::Spaces(4),
+            ..FormatOptions::default()
+        };
+        format(sql_code, &QueryParams::None, options)
+    }
+}
+
 struct SqlGenerator {
     openai: OpenAI,
+    formatter: SqlFormatter,
 }
 
 impl SqlGenerator {
     fn new() -> Result<Self, String> {
         let openai = OpenAI::new()?;
-        Ok(Self { openai })
+        let formatter = SqlFormatter {};
+        Ok(Self { openai, formatter })
     }
 
     fn get_input() -> Result<String, io::Error> {
@@ -119,7 +134,9 @@ impl SqlGenerator {
             Ok(sql_code) => {
                 // stopping the spinner
                 sp.stop();
-                self.print_sql_code(&sql_code);
+
+                let formatted = self.formatter.format(&sql_code);
+                self.print_sql_code(&formatted);
             }
             Err(err) => {
                 sp.stop();
